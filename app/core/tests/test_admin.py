@@ -1,38 +1,42 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 
-class ModelTest(TestCase):
-    def test_create_user_with_email(self):
-        email = 'test@gmail.com'
-        password = 'pass1234'
-        # username = 'TestUser'
-        user = get_user_model().objects.create_user(
-            email=email,
-            password=password,
-            # username=username,
+class AdminSiteTests(TestCase):
+
+    def setUp(self):
+        """Setup for every test"""
+        self.client = Client()
+        self.admin_user = get_user_model().objects.create_superuser(
+            email='admin@gmail.com',
+            password='admin123',
+        )
+        self.client.force_login(self.admin_user)
+        self.user = get_user_model().objects.create_user(
+            email='test@gmail.com',
+            password='pass123',
+            name='Test User',
         )
 
-        self.assertEqual(user.email, email)
-        self.assertTrue(user.check_password(password))
+    def test_users_listed(self):
+        """Tests users are listed on user page & HTTP response is 200."""
+        url = reverse('admin:core_user_changelist')
+        response = self.client.get(url)
 
-    def test_create_super_user(self):
-        user = get_user_model().objects.create_superuser(
-            'test@gmail.com',
-            'pass123'
-        )
+        self.assertContains(response, self.user.name)
+        self.assertContains(response, self.user.email)
 
-        self.assertTrue(user.is_staff)
-        self.assertTrue(user.is_superuser)
+    def test_user_change_page(self):
+        """Edit page."""
+        url = reverse('admin:core_user_change', args=[self.user.id])
+        # '/admin/user/<id>
+        response = self.client.get(url)
 
-    def test_new_user_email_normalised(self):
-        email = 'test@GMAIL.COM'
-        user = get_user_model().objects.create_user(email, 'password123')
+        self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(user.email, email.lower())
-
-    def test_new_user_invalid_email(self):
-        """Creating a user with an invalid email should raise an error."""
-        with self.assertRaises(ValueError):
-            get_user_model().objects.create_user(None, 'pass123')
-
+    def test_create_user_page(self):
+        """Adds page."""
+        url = reverse('admin:core_user_add')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
