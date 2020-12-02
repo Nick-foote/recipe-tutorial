@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
+ME_URL = reverse('user:me')
 
 
 def create_user(**params):
@@ -115,3 +116,58 @@ class PublicUserAPITests(TestCase):
 
         self.assertNotIn('token', resp.data)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retrieve_user_unauthorised(self):
+        """Test authorisation is required for users"""
+        resp = self.client.get(ME_URL)
+
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class PrivateUserAPITest(TestCase):
+    """Tests API requests that require user authentication"""
+
+    def setUp(self):
+        self.user = create_user(
+            email='test@gmail.com',
+            password='pass123',
+            name='Test Name',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+
+    def test_retrieve_profile_success(self):
+        """Retrieving profile for logged in user"""
+        resp = self.client.get(ME_URL)
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data, {
+            'email': 'test@gmail.com',
+            'name': 'Test Name',
+        })
+
+    def test_post_me_not_allowed(self):
+        """Test you cannot send a POST request to user/me"""
+        resp = self.client.post(ME_URL, {})
+
+        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_update_user_profile_successful(self):
+        """Test to update a users profile works"""
+        payload = dict(
+            password='newpassword',
+            name='New Name',
+        )
+        resp = self.client.patch(ME_URL, payload)
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(self.user.name, payload['name'])
+        self.assertTrue(self.user.check_password(payload['password']))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+
+
+## response.data returns:
+# {'email': 'test@gmail.com', 'name': 'New Name'}
