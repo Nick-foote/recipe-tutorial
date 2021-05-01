@@ -4,6 +4,7 @@ from django.conf import settings
 import uuid
 import os
 
+
 def recipe_image_file_path(instance, filename):
     """Generate file path for new recipe image.
     Instance is a requirement """
